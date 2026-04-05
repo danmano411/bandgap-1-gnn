@@ -1,4 +1,4 @@
-# Project 1 — CrystalGINE: GNN Property Predictor
+# Project 1 — GNN Property Predictor
 
 A multimodal Graph Neural Network that predicts **band gap** and **formation energy** of crystalline materials directly from atomic structure, trained on stable semiconductors from the [Materials Project](https://materialsproject.org/).
 
