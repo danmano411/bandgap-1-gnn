@@ -1,0 +1,24 @@
+[project]
+name = "multimodal-gnn"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "matplotlib>=3.10.8",
+    "mp-api>=0.46.0",
+    "numpy>=2.4.4",
+    "pandas>=3.0.2",
+    "pymatgen>=2026.3.23",
+    "python-dotenv>=1.2.2",
+    "seaborn>=0.13.2",
+    "torch>=2.11.0",
+    "torch-geometric>=2.7.0",
+    "tqdm>=4.67.3",
+]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.2.0",
+    "jupyterlab>=4.5.6",
+]
