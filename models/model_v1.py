@@ -20,7 +20,7 @@ epochs = 20
 hidden_dim = 256
 # ------------------------------------------ #
 
-dataset = torch.load(DATA_DIR / "processed_graphs.pt", weights_only=False)
+dataset = torch.load(DATA_DIR / "processed_graphs_v1.pt", weights_only=False)
 train_loader = DataLoader(dataset[:int(len(dataset)*0.8)], batch_size=batch_size, shuffle=True)
 train_eval_loader = DataLoader(dataset[:int(len(dataset)*0.8)], batch_size=batch_size, shuffle=False)
 test_loader = DataLoader(dataset[int(len(dataset)*0.8):], batch_size=batch_size, shuffle=False)

@@ -47,7 +47,7 @@ class CrystalGINE(nn.Module):
         self.conv3 = GINEConv(gine_mlp())
 
         # Embedding layer
-        self.sys_embedding = nn.Embedding(7, 16) # 7 vectors of length 8
+        self.sys_embedding = nn.Embedding(7, 16) # 7 vectors of length 16
 
         # Molecule global parameters (2 - > [Density, nelements])
         self.global_mlp = nn.Linear(2, 16)
@@ -59,7 +59,7 @@ class CrystalGINE(nn.Module):
             # nn.Dropout(0.1),
             nn.Linear(64, 32), 
             nn.ReLU(),
-            nn.Linear(32, 2) # Outpute has 2 values [Band Gap, Formation Energy]
+            nn.Linear(32, 2) # Output has 2 values [Band Gap, Formation Energy]
         )
 
     def forward(self, data):
@@ -73,7 +73,7 @@ class CrystalGINE(nn.Module):
         x = F.relu(self.conv2(x, edge_index, edge_attr))
         x = F.relu(self.conv3(x, edge_index, edge_attr))
 
-        # Individul features
+        # Individual features
         graph_feat = global_mean_pool(x, data.batch)
         sys_feat = self.sys_embedding(data.u_cat)
         global_feat = F.relu(self.global_mlp(data.u_cont)).squeeze(1)
@@ -241,7 +241,7 @@ print(f"MAE: {metrics_test["bg"]["mae"]:.4f} eV | RMSE: {metrics_test["bg"]["rms
 print(f"\n--- Formation Energy Evaluation ---")
 print(f"MAE: {metrics_test["fe"]["mae"]:.4f} eV | RMSE: {metrics_test["fe"]["rmse"]:.4f} eV | R2: {metrics_test["fe"]["r2"]:.4f}\n")
 
-# Save Reults --------------------------------- #
+# Save Results --------------------------------- #
 
 base_folder = Path.cwd() / "test"
 base_name = "model_v2_test_{}"
