@@ -27,7 +27,7 @@ SAVE_PATH.mkdir(parents=True, exist_ok=True)
 
 # Hyperparameters -------------------------- #
 batch_size = 256
-learning_rate = 0.001
+learning_rate = 0.0015
 weight_decay = 1e-4
 # dropout = 0.4
 epochs = 200
@@ -93,37 +93,23 @@ class CrystalGINE(nn.Module):
         """
         Graph layer, crystal shape layer, global mlp layer
         """
-        # self.fus = nn.Sequential(
-        #     nn.Linear(hidden_dim + 32 + 32, 128), 
-        #     nn.BatchNorm1d(128),
-        #     nn.ReLU(),
-        #     nn.Linear(128, 128),
-        #     nn.Dropout(0.5),
-        #     nn.Linear(128, 64), 
-        #     nn.ReLU(),
-        #     nn.Linear(64, 16),
-        #     nn.ReLU(),
-        #     nn.Dropout(0.3),
-        #     nn.Linear(16, 2) # Output has 2 values [Band Gap, Formation Energy]
-        # )
-
         self.fus = nn.Sequential(
             nn.Linear(hidden_dim + 32 + 32, 256), 
             nn.BatchNorm1d(256),
             nn.ReLU(),
-            nn.Dropout(0.5),
+            nn.Dropout(0.4),
             
             nn.Linear(256, 128), 
             nn.ReLU(),
-            nn.Dropout(0.3), # Trial 6 increased dropout
+            nn.Dropout(0.2),
             
             nn.Linear(128, 64),
             nn.ReLU(),
             
-            nn.Linear(64, 16), # The intermediate landing pad
+            nn.Linear(64, 32), 
             nn.ReLU(),
             
-            nn.Linear(16, 2)   # The final prediction
+            nn.Linear(32, 2)
         )
 
     def forward(self, data):
@@ -179,7 +165,7 @@ scheduler = optim.lr_scheduler.ReduceLROnPlateau(
 
 def weighted_mse_loss(pred, target):
     # Band gap is harder to learn, so we give it more "importance"
-    weights = torch.tensor([0.95, 0.05]).to(device)
+    weights = torch.tensor([0.85, 0.15]).to(device)
     loss = (pred - target) ** 2
     weighted_loss = loss * weights
     return weighted_loss.mean()
@@ -291,7 +277,7 @@ for epoch in pbar:
 
     test_bg_rmse = test_metrics['bg']['rmse']
     test_fe_rmse = test_metrics['fe']['rmse']
-    unified_score = 0.95 * test_bg_rmse + 0.05 * test_fe_rmse # Both already in the same units
+    unified_score = 0.85 * test_bg_rmse + 0.15 * test_fe_rmse # Both already in the same units
 
     # Step the scheduler based on the Band Gap Test MAE
     scheduler.step(unified_score)
@@ -356,10 +342,56 @@ metadata = {
     "best_unified_score": best_score,
     "best_epoch": best_epoch, 
     "stopped_early": stopped_early,
-    "note": "increased dropout, weight decay, BG attention and decreased lr"
+    "note": "shifted weights, widened tail, lowered dropout, increased lr"
 }
 
 with open(SAVE_PATH / "metadata.json", "w") as f:
     json.dump(metadata, f, indent=4)
+
+
+# --- Save Predictions vs Actuals for Analysis --- #
+model.eval()
+train_results = []
+test_results = []
+
+with torch.no_grad():
+    for batch in train_eval_loader:
+        batch = batch.to(device)
+        out = model(batch)
+
+        # Move to CPU and convert to numpy
+        y_true = batch.y.cpu().numpy()
+        y_pred = out.cpu().numpy()
+        
+        for i in range(len(y_true)):
+            train_results.append({
+                "bg_actual": y_true[i, 0],
+                "bg_predicted": y_pred[i, 0],
+                "fe_actual": y_true[i, 1],
+                "fe_predicted": y_pred[i, 1]
+            })
+
+    for batch in test_loader:
+        batch = batch.to(device)
+        out = model(batch)
+        
+        # Move to CPU and convert to numpy
+        y_true = batch.y.cpu().numpy()
+        y_pred = out.cpu().numpy()
+        
+        for i in range(len(y_true)):
+            test_results.append({
+                "bg_actual": y_true[i, 0],
+                "bg_predicted": y_pred[i, 0],
+                "fe_actual": y_true[i, 1],
+                "fe_predicted": y_pred[i, 1]
+            })
+
+# Save to CSV
+df_test_preds = pd.DataFrame(test_results)
+df_test_preds.to_csv(SAVE_PATH / "test_predictions_vs_actuals.csv", index=False)
+
+df_train_preds = pd.DataFrame(train_results) 
+df_train_preds.to_csv(SAVE_PATH / "train_predictions_vs_actuals.csv", index=False)
 
 print(f"Saved")
