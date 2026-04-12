@@ -37,9 +37,10 @@ weight_decay = 1e-4
 epochs = 200
 
 target_weights = [0.90, 0.05, 0.05]
-metal_pos_weight = 1.3
+metal_reg_weight = 2.5
+metal_pos_weight = 1.2
 
-hidden_dim = 256
+hidden_dim = 512
 gnn_layers = 5
 # ------------------------------------------ #
 
@@ -174,19 +175,32 @@ scheduler = optim.lr_scheduler.ReduceLROnPlateau(
 )
 
 def multi_task_loss(reg_pred, metal_logits, target_reg, target_metal):
+    # --- HUBER LOSS FOR BAND GAP ---
+    # We use a delta of 1.0. 
+    # This helps with the "overshooting" by dampening gradients from large outliers.
+    mse_bg_raw = F.huber_loss(reg_pred[:, 0], target_reg[:, 0], delta=1.0, reduction='none')
     
-    mse_bg = F.mse_loss(reg_pred[:, 0], target_reg[:, 0]) 
+    # --- SAMPLE WEIGHTING ---
+    # We increase the penalty for errors on materials that are ACTUALLY metals (gap == 0)
+    # This forces the model to respect the "0.0" boundary more.
+    sample_weights = torch.ones_like(target_reg[:, 0])
+    sample_weights[target_reg[:, 0] == 0] = metal_reg_weight # Extra penalty for missing a metal
+    
+    weighted_bg_loss = (mse_bg_raw * sample_weights).mean()
+    
+    # --- STANDARD MSE FOR FORMATION ENERGY ---
     mse_fe = F.mse_loss(reg_pred[:, 1], target_reg[:, 1])
     
-    # BCE with weight
-    target_metal = target_metal.view(-1).float()
+    # --- BCE FOR METAL ---
     metal_loss = F.binary_cross_entropy_with_logits(
         metal_logits.view(-1), 
         target_metal, 
         pos_weight=pos_weight
     )
     
-    return (target_weights[0] * mse_bg) + (target_weights[1] * mse_fe) + (target_weights[2] * metal_loss)
+    return (target_weights[0] * weighted_bg_loss) + \
+           (target_weights[1] * mse_fe) + \
+           (target_weights[2] * metal_loss)
 
 criterion = multi_task_loss
 
@@ -267,6 +281,12 @@ def model_eval(loader):
             },
             "metal": {
                 "acc": metal_acc
+            },
+            "data": {
+                "reg_pred": all_reg_pred,
+                "reg_true": all_reg_true,
+                "metal_logits": all_metal_logits,
+                "metal_true": all_metal_true
             }
         }
 
@@ -287,7 +307,7 @@ for epoch in pbar:
         reg_out, metal_out = model(batch)
 
         # reg_pred, metal_logits, target_reg, target_metal
-        loss = criterion(reg_out, metal_out, batch.y, batch.y_metal)
+        loss = criterion(reg_out, metal_out, batch.y, batch.y_metal.view(-1).float())
 
         optimizer.zero_grad()
         loss.backward()
@@ -320,7 +340,8 @@ for epoch in pbar:
     }
     all_results.append(epoch_results)
 
-    unified_score = test_metrics["bg"]['rmse'] ** 2 # bg_mse
+    # Calculate score
+    unified_score = F.huber_loss(test_metrics['data']['reg_pred'][:, 0], test_metrics['data']['reg_true'][:, 0], delta=1.0).item()
 
     scheduler.step(unified_score)
 
@@ -388,6 +409,7 @@ metadata = {
     "bg_weight": target_weights[0],
     "fe_weight": target_weights[1],
     "metal_weight": target_weights[2],
+    "metal_reg_weight": metal_reg_weight,
     "metal_pos_weight": metal_pos_weight,
     "hidden_dim": hidden_dim,
     "gnn_layers": gnn_layers,
@@ -396,7 +418,7 @@ metadata = {
     "best_unified_score": best_score,
     "best_epoch": best_epoch, 
     "stopped_early": stopped_early,
-    "note": "shifted target weights and metal weights, made sampling less harsh, and adjusted scheduler metric "
+    "note": "updated loss function, penalized bad metal bg predictions more, and switched from bg mse to huber loss"
 }
 
 with open(SAVE_PATH / "metadata.json", "w") as f:
