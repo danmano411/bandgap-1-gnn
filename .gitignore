@@ -8,6 +8,7 @@ wheels/
 
 # Virtual environments
 .venv
+.vscode
 
 # Environment variables
 .env
@@ -20,3 +21,7 @@ wheels/
 
 # Checkpoints
 .ipynb_checkpoints
+/log
+
+# C++ Binaries
+*.pyd

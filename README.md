@@ -1,6 +1,6 @@
-# Project 1 — GNN Property Predictor
+# Project 1 — GNN Property Predictor with C++ Optimization
 
-A multimodal Graph Neural Network that predicts **band gap** and **formation energy** of crystalline materials directly from atomic structure, trained on stable semiconductors from the [Materials Project](https://materialsproject.org/).
+A multimodal Graph Neural Network optimized with custom C++ extensions that predicts **band gap** and **formation energy** of crystalline materials directly from atomic structure, trained on stable semiconductors from the [Materials Project](https://materialsproject.org/). 
 
 ## Data
 
