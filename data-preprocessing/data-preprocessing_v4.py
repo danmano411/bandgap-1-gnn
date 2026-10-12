@@ -6,6 +6,7 @@ from torch_geometric.data import Data
 from pymatgen.core.periodic_table import Element
 from tqdm import tqdm
 from pathlib import Path
+import json
 
 DATA_DIR = Path.cwd() / "data"
 
@@ -66,6 +67,16 @@ global_stats = {
 }
 
 stats = {**node_stats, **global_stats}
+
+# Save normalization stats for inference
+stats_serializable = {
+    k: {'mean': float(v['mean']), 'std': float(v['std'])}
+    for k, v in stats.items()
+}
+
+with open(DATA_DIR / "normalization_stats.json", "w") as f:
+    json.dump(stats_serializable, f, indent=2)
+print(f"Saved normalization stats to {DATA_DIR / 'normalization_stats.json'}")
 
 def normalize(raw_value, key):
     mean, std = stats[key]['mean'], stats[key]['std']

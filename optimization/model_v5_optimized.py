@@ -27,7 +27,7 @@ from pathlib import Path
 DATA_DIR = Path.cwd() / "data"
 
 base_folder = Path.cwd() / "test"
-base_name = "model_v5_test_{}"
+base_name = "model_v5_optimized_test_{}"
 
 counter = 1
 while (base_folder / base_name.format(counter)).exists():
@@ -161,7 +161,6 @@ class CrystalGINE(nn.Module):
         combined = torch.cat([graph_feat, sys_feat, global_feat], dim=1)
         shared = self.shared_fusion(combined)
 
-        # NEW: Multi-task output
         reg_out = self.reg_head(shared)
         metal_logits = self.metal_head(shared)
         
@@ -430,7 +429,7 @@ metadata = {
     "best_unified_score": best_score,
     "best_epoch": best_epoch, 
     "stopped_early": stopped_early,
-    "note": "updated loss function, penalized bad metal bg predictions more, and switched from bg mse to huber loss"
+    "note": "shifted to optimized model to obtain optimized model weights"
 }
 
 with open(SAVE_PATH / "metadata.json", "w") as f:
